@@ -14,6 +14,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: {{IMAGE}}
+          image: "nithi1230/frontend:latest"  # for frontend
+
           ports:
             - containerPort: 80
