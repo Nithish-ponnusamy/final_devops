@@ -26,5 +26,5 @@ COPY . .
 # CMD ["nginx", "-g", "daemon off;"]
 
 # Otherwise for Node.js backends
-EXPOSE 5004
+EXPOSE 80
 CMD ["npm", "start"]
