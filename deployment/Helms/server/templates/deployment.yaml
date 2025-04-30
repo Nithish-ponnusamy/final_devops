@@ -1,20 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "server.fullname" . }}
+  name: server
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: 1
   selector:
     matchLabels:
-      app: {{ include "server.fullname" . }}
+      app: server
   template:
     metadata:
       labels:
-        app: {{ include "server.fullname" . }}
+        app: server
     spec:
       containers:
         - name: server
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{IMAGE}}
           ports:
-            - containerPort: 5003
-          resources: {{- toYaml .Values.resources | nindent 12 }}
+            - containerPort: 5004
