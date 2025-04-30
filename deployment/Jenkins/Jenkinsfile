@@ -1,0 +1,33 @@
+pipeline {
+  agent any
+  environment {
+    REGISTRY = "nithi1230"
+    IMAGE_TAG = "${env.BUILD_NUMBER}"
+  }
+  stages {
+    stage('Build') {
+      steps {
+        sh 'docker build -t $REGISTRY/frontend:$IMAGE_TAG ./project'
+        sh 'docker build -t $REGISTRY/index:$IMAGE_TAG ./Microservice\\ Backend\\Login'
+        sh 'docker build -t $REGISTRY/server:$IMAGE_TAG ./Microservice\\ Backend\\Server'
+      }
+    }
+    stage('Push') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+          sh 'docker push $REGISTRY/frontend:$IMAGE_TAG'
+          sh 'docker push $REGISTRY/index:$IMAGE_TAG'
+          sh 'docker push $REGISTRY/server:$IMAGE_TAG'
+        }
+      }
+    }
+    stage('Deploy') {
+      steps {
+        sh 'helm upgrade --install frontend deployment/helm/frontend --set image.repository=$REGISTRY/frontend --set image.tag=$IMAGE_TAG'
+        sh 'helm upgrade --install index deployment/helm/index --set image.repository=$REGISTRY/index --set image.tag=$IMAGE_TAG'
+        sh 'helm upgrade --install server deployment/helm/server --set image.repository=$REGISTRY/server --set image.tag=$IMAGE_TAG'
+      }
+    }
+  }
+}

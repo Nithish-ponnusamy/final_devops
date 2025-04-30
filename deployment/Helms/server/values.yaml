@@ -1,0 +1,12 @@
+replicaCount: 1
+
+image:
+  repository: nithi1230/server
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 5003
+
+resources: {}

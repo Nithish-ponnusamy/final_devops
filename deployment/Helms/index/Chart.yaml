@@ -1,0 +1,5 @@
+apiVersion: v2
+name: index
+description: index service
+version: 0.1.0
+appVersion: "1.0"
