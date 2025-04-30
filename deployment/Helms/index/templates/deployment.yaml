@@ -1,20 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "index.fullname" . }}
+  name: index
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: 1
   selector:
     matchLabels:
-      app: {{ include "index.fullname" . }}
+      app: index
   template:
     metadata:
       labels:
-        app: {{ include "index.fullname" . }}
+        app: index
     spec:
       containers:
         - name: index
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{IMAGE}}
           ports:
             - containerPort: 5001
-          resources: {{- toYaml .Values.resources | nindent 12 }}
