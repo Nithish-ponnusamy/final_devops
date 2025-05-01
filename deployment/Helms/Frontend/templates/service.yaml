@@ -1,14 +1,17 @@
+# filepath: d:\final_devops\deployment\Helms\Frontend\templates\service.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "frontend.fullname" . }}
+  name: frontend-service # Consider using {{ include "frontend.fullname" . }}-service
 spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: 80
+      targetPort: 80 # The port your container exposes (from Dockerfile)
+      protocol: TCP
+      name: http
       {{- if eq .Values.service.type "NodePort" }}
-      nodePort: 30000
+      nodePort: 30000 # The static port on the node
       {{- end }}
   selector:
-    app: {{ include "frontend.fullname" . }}
+    app: frontend # Should match the label in your deployment template

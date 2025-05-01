@@ -1,14 +1,19 @@
+# filepath: d:\final_devops\deployment\Helms\server\templates\service.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "server.fullname" . }}
+  name: {{ include "server.fullname" . }}-service # Added -service for clarity, adjust if needed
 spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: 5002
+      targetPort: 5002 # The port your server container listens on
+      protocol: TCP
+      name: http
       {{- if eq .Values.service.type "NodePort" }}
+      # You need to ensure this port is unique across your cluster's NodePorts
       nodePort: 30001
       {{- end }}
   selector:
+    # Ensure this label matches the one in your server deployment template
     app: {{ include "server.fullname" . }}
