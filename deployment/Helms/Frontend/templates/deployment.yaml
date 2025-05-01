@@ -1,20 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "frontend.fullname" . }}
+  name: frontend-deployment
 spec:
-  replicas: {{ .Values.replicaCount }}
+  replicas: 1
   selector:
     matchLabels:
-      app: {{ include "frontend.fullname" . }}
+      app: frontend
   template:
     metadata:
       labels:
-        app: {{ include "frontend.fullname" . }}
+        app: frontend
     spec:
       containers:
-        - name: frontend
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          ports:
-            - containerPort: 80
-          resources: {{- toYaml .Values.resources | nindent 12 }}
+      - name: frontend
+        image: nithi1230/frontend:25  
+        ports:
+        - containerPort: 80
