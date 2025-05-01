@@ -7,5 +7,6 @@ spec:
   ports:
     - port: {{ .Values.service.port }}
       targetPort: 5004
+      nodePort: 30002
   selector:
     app: {{ include "index.fullname" . }}
