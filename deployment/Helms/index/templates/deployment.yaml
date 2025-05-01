@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: index
+  name: index-deployment
 spec:
   replicas: 1
   selector:
@@ -13,7 +13,7 @@ spec:
         app: index
     spec:
       containers:
-        - name: index
-          image: "nithi1230/frontend:latest" 
-          ports:
-            - containerPort: 5001
+      - name: index
+        image: nithi1230/index:25  
+        ports:
+        - containerPort: 80
