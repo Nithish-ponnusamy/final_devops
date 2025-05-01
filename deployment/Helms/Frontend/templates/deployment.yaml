@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: frontend
+  name: frontend-deployment
 spec:
   replicas: 1
   selector:
@@ -13,8 +13,7 @@ spec:
         app: frontend
     spec:
       containers:
-        - name: frontend
-          image: "nithi1230/frontend:latest"  
-
-          ports:
-            - containerPort: 80
+      - name: frontend
+        image: nithi1230/frontend:25  
+        ports:
+        - containerPort: 80
