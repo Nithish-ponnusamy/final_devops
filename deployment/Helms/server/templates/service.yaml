@@ -7,6 +7,8 @@ spec:
   ports:
     - port: {{ .Values.service.port }}
       targetPort: 5002
+      {{- if eq .Values.service.type "NodePort" }}
       nodePort: 30001
+      {{- end }}
   selector:
     app: {{ include "server.fullname" . }}
