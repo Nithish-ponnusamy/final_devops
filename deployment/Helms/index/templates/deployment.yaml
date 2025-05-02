@@ -16,4 +16,4 @@ spec:
       - name: index
         image: nithi1230/index:25  
         ports:
-        - containerPort: 80
+        - containerPort: 5001
