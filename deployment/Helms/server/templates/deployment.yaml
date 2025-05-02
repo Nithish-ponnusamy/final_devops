@@ -16,4 +16,4 @@ spec:
       - name: server
         image: nithi1230/server:25  
         ports:
-        - containerPort: 80
+        - containerPort: 5002
