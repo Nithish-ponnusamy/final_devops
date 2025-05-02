@@ -6,7 +6,7 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: 5000
+      targetPort: 5002
       nodePort: 30001
   selector:
     app: {{ include "server.fullname" . }}
