@@ -7,6 +7,8 @@ spec:
   ports:
     - port: {{ .Values.service.port }}
       targetPort: 80
+      {{- if eq .Values.service.type "NodePort" }}
       nodePort: 30000
+      {{- end }}
   selector:
     app: {{ include "frontend.fullname" . }}
