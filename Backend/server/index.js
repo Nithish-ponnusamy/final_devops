@@ -1,19 +1,20 @@
-// index.js
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-require("dotenv").config(); // Load environment variables
+require("dotenv").config(); // Load .env file
 
 // ------------------
-// Configuration
+// Config
 // ------------------
 const PORT = process.env.PORT || 5004;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://mongo:27017/appdb";
+const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Validate critical environment variables
+// ------------------
+// Validate Critical Vars
+// ------------------
 if (!MONGO_URI || !JWT_SECRET) {
-  console.error("❌ MONGO_URI or JWT_SECRET is missing. Please define them in the .env file or pass via environment.");
+  console.error("❌ MONGO_URI or JWT_SECRET is missing in environment.");
   process.exit(1);
 }
 
@@ -22,23 +23,16 @@ if (!MONGO_URI || !JWT_SECRET) {
 // ------------------
 const app = express();
 
-// ------------------
 // Middleware
-// ------------------
-app.use(cors({
-  origin: process.env.CLIENT_ORIGIN || "*", // Set specific origin in production
-}));
+app.use(cors({ origin: "*" })); // Change "*" to specific frontend domain in production
 app.use(express.json());
 
-// ------------------
 // Routes
-// ------------------
 const authRoutes = require("./routes/authRoutes");
 app.use("/api/auth", authRoutes);
 
-// Sample root endpoint (optional)
 app.get("/", (req, res) => {
-  res.send("✅ Server is up and running.");
+  res.send("🚀 Server is running!");
 });
 
 // ------------------
@@ -46,13 +40,12 @@ app.get("/", (req, res) => {
 // ------------------
 mongoose.connect(MONGO_URI)
   .then(() => {
-    console.log("✅ MongoDB connected successfully");
+    console.log("✅ Connected to MongoDB");
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
     });
   })
   .catch((err) => {
-    console.error("❌ MongoDB connection error:", err.message);
-    console.error("💡 TIP: If you're using MongoDB Atlas, ensure your cluster IP is whitelisted and the URI is correct.");
+    console.error("❌ MongoDB connection failed:", err.message);
     process.exit(1);
   });
