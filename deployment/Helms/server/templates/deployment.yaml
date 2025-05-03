@@ -17,3 +17,6 @@ spec:
         image: nithi1230/server:25  
         ports:
         - containerPort: 5002
+        env:
+        - name: MONGODB_URI
+          value: "mongodb+srv://nithinithish271:nithish1230@cluster0.cbw99.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
