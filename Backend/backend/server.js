@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 5000;
+const PORT = 5002;
 const YT_API_KEY = 'AIzaSyDuwfJ9vJFs9CYAzt6s_RZ1WbYiWe0JtEc';
 const sentiment = new Sentiment();
 

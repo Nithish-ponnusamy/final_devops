@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 
 // --- Config ---
-const PORT = 5004;
+const PORT = 5001;
 const MONGO_URI =
   "mongodb+srv://nithinithish271:nithish1230@cluster0.cbw99.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 const JWT_SECRET =
