@@ -1,25 +1,31 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+require("dotenv").config(); // Load environment variables from .env file
 
 // --- Config ---
-const PORT = 5001;
-const MONGO_URI =
-  "mongodb+srv://nithinithish271:nithish1230@cluster0.cbw99.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
-const JWT_SECRET =
-  "4953546c308be3088b28807c767bd35e99818434d130a588e5e6d90b6d1d326e";
+// Use process.env to access variables, provide defaults if needed
+const PORT = process.env.PORT || 5004;
+const MONGO_URI = process.env.MONGO_URI;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // --- Validate Critical Config ---
 if (!MONGO_URI || !JWT_SECRET) {
   console.error(
-    "❌ MONGO_URI or JWT_SECRET is missing. Please define them in the code."
+    "❌ MONGO_URI or JWT_SECRET is missing. Please define them in the .env file."
   );
   process.exit(1);
 }
 
 // --- Initialize App ---
 const app = express();
-app.use(cors());
+
+// Example: Allow only your frontend domain
+const corsOptions = {
+  origin: "http://your-frontend-domain.com", // Or use environment variable
+};
+app.use(cors(corsOptions));
+
 app.use(express.json());
 
 // --- Routes ---
@@ -29,7 +35,8 @@ app.use("/api/auth", authRoutes);
 // --- Connect to MongoDB ---
 mongoose
   .connect(MONGO_URI, {
-    useNewUrlParser: true,
+    useNewUrlParser: true, // Note: This option might be deprecated depending on your Mongoose version
+    // useUnifiedTopology: true // Often used together with useNewUrlParser, also potentially deprecated
   })
   .then(() => {
     console.log("✅ MongoDB connected");
