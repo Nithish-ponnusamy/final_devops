@@ -1,33 +1,140 @@
 pipeline {
-  agent any
-  environment {
-    REGISTRY = "nithi1230"
-    IMAGE_TAG = "${env.BUILD_NUMBER}"
-  }
-  stages {
-    stage('Build') {
-      steps {
-        sh 'docker build -t $REGISTRY/frontend:$IMAGE_TAG ./project'
-        sh 'docker build -t $REGISTRY/index:$IMAGE_TAG ./Microservice\\ Backend\\Login'
-        sh 'docker build -t $REGISTRY/server:$IMAGE_TAG ./Microservice\\ Backend\\Server'
-      }
+    agent any
+
+    environment {
+        REGISTRY = "nithi1230"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        KUBECONFIG = "/var/lib/jenkins/minikube-kubeconfig"
     }
-    stage('Push') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-          sh 'docker push $REGISTRY/frontend:$IMAGE_TAG'
-          sh 'docker push $REGISTRY/index:$IMAGE_TAG'
-          sh 'docker push $REGISTRY/server:$IMAGE_TAG'
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: 'https://github.com/Nithish-ponnusamy/final_devops.git', branch: 'main'
+            }
         }
-      }
+
+        stage('Debug') {
+            steps {
+                sh 'whoami'
+                sh 'env | grep KUBECONFIG'
+                sh 'ls -l /var/lib/jenkins/minikube-kubeconfig'
+                sh 'ls -l /var/lib/jenkins/.minikube/ || true'
+                sh 'ls -l deployment/Helms/Frontend/templates/ || true'
+                sh 'ls -l deployment/Helms/index/templates/ || true'
+                sh 'ls -l deployment/Helms/server/templates/ || true'
+                sh 'kubectl config view --kubeconfig=$KUBECONFIG'
+                sh 'kubectl version --kubeconfig=$KUBECONFIG'
+                sh 'minikube ip || true'
+                sh 'minikube status || true'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo "Building Docker images..."
+                sh 'docker build --pull -t $REGISTRY/frontend:$IMAGE_TAG ./social_media_dashboard_analyzer'
+                sh 'docker build --pull -t $REGISTRY/index:$IMAGE_TAG ./Backend/backend'
+                sh 'docker build --pull -t $REGISTRY/server:$IMAGE_TAG ./Backend/server'
+            }
+        }
+
+        stage('Push') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    echo "Logging in and pushing Docker images..."
+                    sh '''
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        docker push $REGISTRY/frontend:$IMAGE_TAG
+                        docker push $REGISTRY/index:$IMAGE_TAG
+                        docker push $REGISTRY/server:$IMAGE_TAG
+                    '''
+                }
+            }
+        }
+
+        stage('Pull (Verify Registry Upload)') {
+            steps {
+                echo "Pulling pushed images to verify availability..."
+                sh '''
+                    docker pull $REGISTRY/frontend:$IMAGE_TAG
+                    docker pull $REGISTRY/index:$IMAGE_TAG
+                    docker pull $REGISTRY/server:$IMAGE_TAG
+                '''
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                echo "Deploying to Kubernetes using Helm..."
+                sh '''
+                helm upgrade --install frontend deployment/Helms/Frontend \
+                    --set image=$REGISTRY/frontend:latest \
+                    --set service.type=NodePort \
+                    --set service.port=80 \
+                    --kubeconfig=$KUBECONFIG
+
+                helm upgrade --install index deployment/Helms/index \
+                    --set image=$REGISTRY/index:latest \
+                    --set service.type=ClusterIP \
+                    --set service.port=80 \
+                    --kubeconfig=$KUBECONFIG
+
+                helm upgrade --install server deployment/Helms/server \
+                    --set image=$REGISTRY/server:latest \
+                    --set service.type=ClusterIP \
+                    --set service.port=80 \
+                    --kubeconfig=$KUBECONFIG
+                '''
+            }
+        }
+
+        stage('Verify Deployments') {
+            steps {
+                echo "Checking deployment and pod status..."
+                sh '''
+                kubectl get deployments --kubeconfig=$KUBECONFIG
+                kubectl get pods --kubeconfig=$KUBECONFIG
+                kubectl describe deployment frontend-deployment --kubeconfig=$KUBECONFIG || true
+                kubectl describe deployment index-deployment --kubeconfig=$KUBECONFIG || true
+                kubectl describe deployment server-deployment --kubeconfig=$KUBECONFIG || true
+                '''
+            }
+        }
+
+        stage('Get Service IPs') {
+            steps {
+                echo "Retrieving service IPs or URLs..."
+                sh '''
+                echo "Listing all services:"
+                kubectl get services --kubeconfig=$KUBECONFIG -o wide
+                '''
+                sh '''
+                echo "Frontend service details:"
+                kubectl describe service frontend-service --kubeconfig=$KUBECONFIG || true
+                minikube service frontend-service --url || echo "Run 'minikube tunnel' to get LoadBalancer IP"
+                '''
+                sh '''
+                echo "Index service details:"
+                kubectl describe service index-service --kubeconfig=$KUBECONFIG || true
+                '''
+                sh '''
+                echo "Server service details:"
+                kubectl describe service server-service --kubeconfig=$KUBECONFIG || true
+                '''
+            }
+        }
     }
-    stage('Deploy') {
-      steps {
-        sh 'helm upgrade --install frontend deployment/helm/frontend --set image.repository=$REGISTRY/frontend --set image.tag=$IMAGE_TAG'
-        sh 'helm upgrade --install index deployment/helm/index --set image.repository=$REGISTRY/index --set image.tag=$IMAGE_TAG'
-        sh 'helm upgrade --install server deployment/helm/server --set image.repository=$REGISTRY/server --set image.tag=$IMAGE_TAG'
-      }
+
+    post {
+        success {
+            echo "Pipeline completed successfully."
+        }
+        failure {
+            echo "Pipeline failed. Please check the logs."
+        }
+        cleanup {
+            echo "Cleaning up temporary resources (if any)."
+        }
     }
-  }
 }
