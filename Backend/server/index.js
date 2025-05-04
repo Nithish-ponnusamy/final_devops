@@ -24,7 +24,10 @@ if (!MONGO_URI || !JWT_SECRET) {
 const app = express();
 
 // Middleware
-app.use(cors({ origin: "*" })); // Change "*" to specific frontend domain in production
+app.use(cors({
+  origin: '*',  // Allows requests from any origin
+  credentials: true,  // Include credentials like cookies or HTTP authentication if needed
+}));
 app.use(express.json());
 
 // Routes
