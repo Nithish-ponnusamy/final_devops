@@ -15,5 +15,6 @@ spec:
       containers:
       - name: frontend
         image: nithi1230/frontend:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
