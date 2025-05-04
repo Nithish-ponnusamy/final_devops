@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: index
-        image: nithi1230/index:25  
+        image: nithi1230/index:latest  
         ports:
         - containerPort: 5001
         env:
