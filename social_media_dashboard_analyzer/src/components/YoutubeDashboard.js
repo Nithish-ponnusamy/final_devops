@@ -14,7 +14,7 @@ function YoutubeDashboard() {
     setChannelData(null);
 
     try {
-      const response = await fetch(`http://localhost:5002/api/channel/${channelName}`);
+      const response = await fetch(`http://10.97.54.60:5002/api/channel/${channelName}`);
       
       if (!response.ok) {
         throw new Error('Channel not found or error in fetching data.');
