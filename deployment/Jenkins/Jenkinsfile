@@ -67,25 +67,28 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo "Deploying to Kubernetes using Helm..."
-                sh '''
+                sh """
                 helm upgrade --install frontend deployment/Helms/Frontend \
-                    --set image=$REGISTRY/frontend:latest \
+                    --set image.repository=$REGISTRY/frontend \
+                    --set image.tag=$IMAGE_TAG \
                     --set service.type=NodePort \
                     --set service.port=80 \
                     --kubeconfig=$KUBECONFIG
 
                 helm upgrade --install index deployment/Helms/index \
-                    --set image=$REGISTRY/index:latest \
+                    --set image.repository=$REGISTRY/index \
+                    --set image.tag=$IMAGE_TAG \
                     --set service.type=ClusterIP \
-                    --set service.port=80 \
+                    --set service.port=5001 \
                     --kubeconfig=$KUBECONFIG
 
                 helm upgrade --install server deployment/Helms/server \
-                    --set image=$REGISTRY/server:latest \
-                    --set service.type=ClusterIP \
-                    --set service.port=80 \
+                    --set image.repository=$REGISTRY/server \
+                    --set image.tag=$IMAGE_TAG \
+                    --set service.type=NodePort \
+                    --set service.port=5002 \
                     --kubeconfig=$KUBECONFIG
-                '''
+                """
             }
         }
 

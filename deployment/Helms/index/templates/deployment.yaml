@@ -14,8 +14,8 @@ spec:
     spec:
       containers:
       - name: index
-        image: nithi1230/index:latest
-        imagePullPolicy: Always
+        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
         ports:
         - containerPort: 5001
         env:
