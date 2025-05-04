@@ -14,7 +14,8 @@ spec:
     spec:
       containers:
       - name: index
-        image: nithi1230/index:latest  
+        image: nithi1230/index:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 5001
         env:
