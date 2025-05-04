@@ -1,4 +1,3 @@
-# filepath: d:\final_devops\deployment\Helms\index\values.yaml
 replicaCount: 1
 
 image:
@@ -7,7 +6,8 @@ image:
   pullPolicy: IfNotPresent
 
 service:
-  type: NodePort # Changed from ClusterIP (assuming it was ClusterIP)
+  type: NodePort
   port: 5001
+  nodePort: 30002 # Add this line for clarity and flexibility
 
 resources: {}

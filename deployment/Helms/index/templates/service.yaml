@@ -1,19 +1,16 @@
-# filepath: d:\final_devops\deployment\Helms\index\templates\service.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "index.fullname" . }}-service # Assuming a similar naming helper exists
+  name: {{ include "index.fullname" . }}-service
 spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: 5001 # The port your index container listens on
+      targetPort: 5001
       protocol: TCP
       name: http
       {{- if eq .Values.service.type "NodePort" }}
-      # Ensure this port is unique across your cluster's NodePorts
-      nodePort: 30002
+      nodePort: {{ .Values.service.nodePort | default 30002 }}
       {{- end }}
   selector:
-    # Ensure this label matches the one in your index deployment template
-    app: {{ include "index.fullname" . }} # Adjust if the label is different
+    app: {{ include "index.fullname" . }}

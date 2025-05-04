@@ -17,3 +17,10 @@ spec:
         image: nithi1230/index:25  
         ports:
         - containerPort: 5001
+        env:
+        - name: MONGO_URI
+          value: "mongodb+srv://nithinithish271:nithinithish271@cluster0.cbw99.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+        - name: JWT_SECRET
+          value: "4953546c308be3088b28807c767bd35e99818434d130a588e5e6d90b6d1d326e"
+        - name: PORT
+          value: "5001"
