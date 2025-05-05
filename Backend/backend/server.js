@@ -19,10 +19,7 @@ const YT_API_KEY = 'AIzaSyDuwfJ9vJFs9CYAzt6s_RZ1WbYiWe0JtEc';
 const sentiment = new Sentiment();
 
 // Middleware - Only declared once
-app.use(cors({
-  origin: 'http://10.111.95.122',  // Allows requests from any origin
-  credentials: true,  // Include credentials like cookies or HTTP authentication if needed
-}));
+app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
