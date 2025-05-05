@@ -25,7 +25,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: '*',  // Allows requests from any origin
+  origin: 'http://10.111.95.122',  // Allows requests from any origin
   credentials: true,  // Include credentials like cookies or HTTP authentication if needed
 }));
 app.use(express.json());
