@@ -12,7 +12,7 @@ function Signup() {
         setError(null); // Reset any previous error
 
         try {
-            const response = await fetch('http://10.108.14.237:5001/api/auth/register', {
+            const response = await fetch('http://localhost:5001/api/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
