@@ -24,10 +24,7 @@ if (!MONGO_URI || !JWT_SECRET) {
 const app = express();
 
 // Middleware
-app.use(cors({
-  origin: 'http://10.111.95.122',  // Allows requests from any origin
-  credentials: true,  // Include credentials like cookies or HTTP authentication if needed
-}));
+app.use(cors());
 app.use(express.json());
 
 // Routes
