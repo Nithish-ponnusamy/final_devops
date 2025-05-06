@@ -6,7 +6,7 @@ require("dotenv").config(); // Load .env file
 // ------------------
 // Config
 // ------------------
-const PORT = process.env.PORT || 5004;
+const PORT = 5001;
 const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 
