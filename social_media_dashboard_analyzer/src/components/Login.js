@@ -12,7 +12,7 @@ function Login({ setIsAuthenticated }) {
     setError(null); // Reset any previous error
 
     try {
-      const response = await fetch('http://localhost:5002/api/auth/login', {
+      const response = await fetch('http://localhost:5001/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
