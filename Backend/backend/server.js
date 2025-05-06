@@ -10,9 +10,6 @@ import { fileURLToPath } from 'url';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
 const PORT = 5002;
 const YT_API_KEY = 'AIzaSyDuwfJ9vJFs9CYAzt6s_RZ1WbYiWe0JtEc';
@@ -81,17 +78,6 @@ const YouTubeChannelSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const YouTubeChannel = mongoose.model('YouTubeChannel', YouTubeChannelSchema);
-
-// ---------------------------
-// Serve HTML pages
-// ---------------------------
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'twitter_engagement.html'));
-});
-
-app.get('/y', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'youtube_dashboard.html'));
-});
 
 // ---------------------------
 // Twitter Profile Data Fetching
