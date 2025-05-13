@@ -17,7 +17,7 @@ function TwitterEngagement() {
     setProfileData(null);
 
     try {
-      const response = await fetch('http://localhost:5002/get_profile', {
+      const response = await fetch('http://10.111.105.48:5002/get_profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username })
