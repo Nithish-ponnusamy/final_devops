@@ -14,19 +14,23 @@ if (!MONGO_URI || !JWT_SECRET) {
 }
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000', // Replace with your frontend URL
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
 app.use(express.json());
 
 // Routes
 const authRoutes = require("./routes/authRoutes");
 app.use("/api/auth", authRoutes);
 
-// Root
+// Root Route
 app.get("/", (req, res) => {
     res.send("🚀 Auth Server Running!");
 });
 
-// DB connection
+// DB Connection
 mongoose.connect(MONGO_URI)
     .then(() => {
         console.log("✅ Connected to MongoDB");
