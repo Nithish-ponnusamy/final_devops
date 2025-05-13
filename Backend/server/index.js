@@ -1,51 +1,41 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-require("dotenv").config(); // Load .env file
+require("dotenv").config();
 
-// ------------------
-// Config
-// ------------------
+const app = express();
 const PORT = 5001;
 const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// ------------------
-// Validate Critical Vars
-// ------------------
+// Validate .env
 if (!MONGO_URI || !JWT_SECRET) {
-  console.error("❌ MONGO_URI or JWT_SECRET is missing in environment.");
-  process.exit(1);
+    console.error("❌ Missing environment variables");
+    process.exit(1);
 }
-
-// ------------------
-// Initialize Express App
-// ------------------
-const app = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// Auth Routes
 const authRoutes = require("./routes/authRoutes");
 app.use("/api/auth", authRoutes);
 
+// Root route
 app.get("/", (req, res) => {
-  res.send("🚀 Server is running!");
+    res.send("🚀 Auth Server Running!");
 });
 
-// ------------------
-// MongoDB Connection
-// ------------------
+// MongoDB connection
 mongoose.connect(MONGO_URI)
-  .then(() => {
-    console.log("✅ Connected to MongoDB");
-    app.listen(5001, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    .then(() => {
+        console.log("✅ Connected to MongoDB");
+        app.listen(PORT, () => {
+            console.log(`🚀 Auth Server on http://localhost:${PORT}`);
+        });
+    })
+    .catch((err) => {
+        console.error("❌ MongoDB connection failed:", err.message);
+        process.exit(1);
     });
-  })
-  .catch((err) => {
-    console.error("❌ MongoDB connection failed:", err.message);
-    process.exit(1);
-  });
