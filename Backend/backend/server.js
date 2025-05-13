@@ -7,44 +7,42 @@ import path from 'path';
 import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 
+dotenv.config();
+
 const app = express();
 const PORT = 5002;
-const YT_API_KEY = 'AIzaSyDuwfJ9vJFs9CYAzt6s_RZ1WbYiWe0JtEc';
 const sentiment = new Sentiment();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Middleware - Only declared once
+// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Rate limiting middleware
+// Rate limiting
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+    windowMs: 15 * 60 * 1000,
+    max: 100,
 });
 app.use(limiter);
 
-// ---------------------------
-// MongoDB Configuration
-// ---------------------------
-mongoose.connect("mongodb+srv://nithinithish271:nithish1230@cluster0.cbw99.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0", {
+// MongoDB Connection
+mongoose.connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
 });
-
-const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'MongoDB connection error:'));
-db.once('open', () => {
-    console.log('Connected to MongoDB');
+mongoose.connection.once('open', () => {
+    console.log('✅ Connected to MongoDB');
+}).on('error', (err) => {
+    console.error('MongoDB error:', err);
 });
 
-// Define schemas and models for profile data and YouTube channel data
-
-// Profile Schema and Model
+// Mongoose Schemas
 const ProfileSchema = new mongoose.Schema({
     username: String,
     posts: String,
@@ -56,9 +54,6 @@ const ProfileSchema = new mongoose.Schema({
     tweets: Array,
 }, { timestamps: true });
 
-const Profile = mongoose.model('Profile', ProfileSchema);
-
-// YouTube Channel Schema and Model
 const YouTubeChannelSchema = new mongoose.Schema({
     channelName: String,
     channelThumbnail: String,
@@ -77,74 +72,47 @@ const YouTubeChannelSchema = new mongoose.Schema({
     ],
 }, { timestamps: true });
 
+const Profile = mongoose.model('Profile', ProfileSchema);
 const YouTubeChannel = mongoose.model('YouTubeChannel', YouTubeChannelSchema);
 
-// ---------------------------
-// Twitter Profile Data Fetching
-// ---------------------------
-
-// Function to fetch profile data using Puppeteer
+// ------------------- Twitter Profile Data --------------------
 async function fetchProfileData(username) {
     const browser = await puppeteer.launch({
         headless: true,
-        executablePath: 'C:\\Users\\mvaru\\AppData\\Local\\BraveSoftware\\Brave-Browser\\Application\\brave.exe',
-        args: [
-            '--disable-blink-features=AutomationControlled',
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-web-security',
-            '--allow-running-insecure-content',
-        ],
+        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', // Change if needed
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
 
     const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
+    await page.setUserAgent('Mozilla/5.0');
 
     try {
-        // Wait for the page to load and ensure that critical elements are available
         await page.goto(`https://x.com/${username}`, { waitUntil: 'networkidle2' });
 
-        // Wait for specific profile data elements to load before extracting them
-        await page.waitForSelector('.r-n6v787', { timeout: 10000 }); // Posts count
-        await page.waitForSelector('img[src*="profile_images"]', { timeout: 10000 }); // Profile photo
-
         const profileData = await page.evaluate((username) => {
-            // Extract data from the page
             const posts = document.querySelector('.r-n6v787')?.textContent || "0";
             const profilePhoto = document.querySelector('img[src*="profile_images"]')?.src || '';
             const following = document.querySelector(`a[href="/${username}/following"] span`)?.textContent || "0";
-            const followers = document.querySelector(`a[href="/${username}/verified_followers"] span`)?.textContent || "0";
-            const joinedDateElement = Array.from(document.querySelectorAll('span')).find(span => span.textContent.includes('Joined'));
-            const joinedDate = joinedDateElement ? joinedDateElement.textContent : "0";
+            const followers = document.querySelector(`a[href="/${username}/followers"] span`)?.textContent || "0";
+            const joinedDate = Array.from(document.querySelectorAll('span')).find(span => span.textContent.includes('Joined'))?.textContent || "Unknown";
             const bio = document.querySelector('div[data-testid="UserDescription"]')?.innerText || '';
-
-            return {
-                posts,
-                profile_photo: profilePhoto,
-                following,
-                followers,
-                joined_date: joinedDate,
-                bio,
-            };
+            return { posts, profile_photo: profilePhoto, following, followers, joined_date: joinedDate, bio };
         }, username);
 
-        // Fetch tweets
         const tweets = await fetchTweets(page);
-
         await browser.close();
 
         return { ...profileData, tweets };
 
     } catch (err) {
-        console.error('Error during Twitter profile data fetching:', err);
+        console.error('Error:', err);
         await browser.close();
-        return { error: 'Error fetching Twitter profile data. Please check the username.' };
+        return { error: 'Failed to fetch Twitter profile.' };
     }
 }
 
 async function fetchTweets(page) {
     try {
-        // Wait for tweets to load
         await page.waitForSelector('article', { timeout: 10000 });
 
         const tweets = await page.evaluate(() => {
@@ -156,14 +124,9 @@ async function fetchTweets(page) {
             });
         });
 
-        // Apply sentiment analysis on each tweet
         return tweets.map(tweet => {
-            const sentimentResult = sentiment.analyze(tweet.text);
-            return {
-                ...tweet,
-                sentiment: sentimentResult.score,
-                comparative: sentimentResult.comparative,
-            };
+            const result = sentiment.analyze(tweet.text);
+            return { ...tweet, sentiment: result.score, comparative: result.comparative };
         });
 
     } catch (err) {
@@ -173,154 +136,117 @@ async function fetchTweets(page) {
 }
 
 app.post('/get_profile', async (req, res) => {
-    const username = req.body.username;
-
-    if (!username) {
-        return res.status(400).json({ message: 'Username is required!' });
-    }
+    const { username } = req.body;
+    if (!username) return res.status(400).json({ message: 'Username is required' });
 
     const profileData = await fetchProfileData(username);
+    if (profileData.error) return res.status(400).json({ message: profileData.error });
 
-    if (profileData.error) {
-        return res.status(400).json({ message: profileData.error });
-    }
-
-    // Save profile data to MongoDB
     const newProfile = new Profile(profileData);
     await newProfile.save();
 
     res.json(profileData);
 });
-// ---------------------------
-// YouTube API Integration
-// ---------------------------
 
+// ------------------- YouTube API --------------------
 app.get('/api/channel/:channelName', async (req, res) => {
     const { channelName } = req.params;
     try {
-        // Fetch channel details
         const searchResponse = await axios.get('https://www.googleapis.com/youtube/v3/search', {
             params: {
                 part: 'snippet',
                 q: channelName,
-                key: YT_API_KEY,
                 type: 'channel',
+                key: process.env.YT_API_KEY,
             },
         });
 
-        if (searchResponse.data.items.length === 0) {
-            return res.status(404).json({ error: 'Channel not found. Please check the channel name.' });
-        }
+        if (searchResponse.data.items.length === 0)
+            return res.status(404).json({ error: 'Channel not found' });
 
         const channelId = searchResponse.data.items[0].id.channelId;
-        const channelResponse = await axios.get('https://www.googleapis.com/youtube/v3/channels', {
+
+        const channelData = await axios.get('https://www.googleapis.com/youtube/v3/channels', {
             params: {
                 part: 'statistics,snippet',
                 id: channelId,
-                key: YT_API_KEY,
+                key: process.env.YT_API_KEY,
             },
         });
 
-        const channelData = channelResponse.data.items[0];
-        const stats = channelData.statistics;
-        const snippet = channelData.snippet;
-
+        const item = channelData.data.items[0];
         const channelInfo = {
-            channelName: snippet.title,
-            channelThumbnail: snippet.thumbnails.default.url,
-            totalViews: stats.viewCount,
-            totalSubscribers: stats.subscriberCount,
-            totalVideos: stats.videoCount,
+            channelName: item.snippet.title,
+            channelThumbnail: item.snippet.thumbnails.default.url,
+            totalViews: item.statistics.viewCount,
+            totalSubscribers: item.statistics.subscriberCount,
+            totalVideos: item.statistics.videoCount,
         };
 
-        // Fetch recent 5 videos
         const videosResponse = await axios.get('https://www.googleapis.com/youtube/v3/search', {
             params: {
                 part: 'snippet',
-                channelId: channelId,
+                channelId,
                 maxResults: 5,
                 order: 'date',
                 type: 'video',
-                key: YT_API_KEY,
+                key: process.env.YT_API_KEY,
             },
         });
 
         const recentVideos = await Promise.all(videosResponse.data.items.map(async (video) => {
-            const videoId = video.id.videoId;
-
-            const videoDetailsResponse = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+            const details = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
                 params: {
                     part: 'statistics,snippet',
-                    id: videoId,
-                    key: YT_API_KEY,
+                    id: video.id.videoId,
+                    key: process.env.YT_API_KEY,
                 },
             });
-
-            const videoDetails = videoDetailsResponse.data.items[0];
-
+            const v = details.data.items[0];
             return {
-                title: videoDetails.snippet.title,
-                description: videoDetails.snippet.description,
-                publishedAt: videoDetails.snippet.publishedAt,
-                likes: videoDetails.statistics.likeCount,
-                comments: videoDetails.statistics.commentCount,
-                views: videoDetails.statistics.viewCount,
+                title: v.snippet.title,
+                description: v.snippet.description,
+                publishedAt: v.snippet.publishedAt,
+                likes: v.statistics.likeCount,
+                comments: v.statistics.commentCount,
+                views: v.statistics.viewCount,
             };
         }));
 
-        const youtubeChannelData = {
-            ...channelInfo,
-            recentVideos,
-        };
-
-        // Save the YouTube channel data to MongoDB
-        const newYouTubeChannel = new YouTubeChannel(youtubeChannelData);
-        await newYouTubeChannel.save();
+        const youtubeData = { ...channelInfo, recentVideos };
+        const newYT = new YouTubeChannel(youtubeData);
+        await newYT.save();
 
         res.json({ stats: channelInfo, recentVideos });
 
     } catch (error) {
-        console.error('Error fetching data from YouTube API:', error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Error fetching data from YouTube API' });
+        console.error(error.message);
+        res.status(500).json({ error: 'YouTube API error' });
     }
 });
 
-// Chatbot setup
-const API_KEY = 'AIzaSyCarN4yxPKWw9UiiCVsx0H0c_MWJbHjLV8'; // Replace with your actual API key
-const genAI = new GoogleGenerativeAI(API_KEY);
+// ------------------- Chatbot --------------------
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-
-// Middleware
-app.use(cors());
-app.use(bodyParser.json());
-app.use(express.static('public')); // Serve static files from the public directory
-
-// Endpoint to handle chat messages
 app.post('/chat', async (req, res) => {
     const userMessage = req.body.message;
-    if (userMessage) {
-        try {
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-            const result = await model.generateContent([userMessage]);
-            const reply = result.response.text();
-            res.json({ reply });
-        } catch (error) {
-            console.error("Error:", error);
-            res.status(500).json({ error: "An error occurred while processing your request." });
-        }
-    } else {
-        res.status(400).json({ error: "No message provided." });
+    if (!userMessage) return res.status(400).json({ error: "No message provided." });
+
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent([userMessage]);
+        res.json({ reply: result.response.text() });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Chatbot error" });
     }
 });
 
-// Serve the HTML file at the root endpoint
+// Serve chatbot UI
 app.get('/c', (req, res) => {
     res.sendFile(__dirname + '/public/chatbot.html');
 });
 
-//
-
-// Start server
 app.listen(PORT, () => {
-    console.log(`Server is running at http://localhost:${PORT}`);
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
