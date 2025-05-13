@@ -1,48 +1,44 @@
+// server.js
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import puppeteer from 'puppeteer';
 import Sentiment from 'sentiment';
-import path from 'path';
-import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
-import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
 const app = express();
-const PORT = 5002;
+const PORT = process.env.PORT || 5002;
+const YT_API_KEY = process.env.YT_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const sentiment = new Sentiment();
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// MongoDB connect
+mongoose.connect(process.env.MONGO_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+}).then(() => console.log("✅ MongoDB connected"))
+  .catch(err => {
+    console.error("❌ MongoDB connection failed:", err.message);
+    process.exit(1);
+});
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static('public'));
-
-// Rate limiting
-const limiter = rateLimit({
+app.use(rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
-});
-app.use(limiter);
+}));
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-});
-mongoose.connection.once('open', () => {
-    console.log('✅ Connected to MongoDB');
-}).on('error', (err) => {
-    console.error('MongoDB error:', err);
-});
-
-// Mongoose Schemas
+// ----------------------
+// Mongo Schemas
+// ----------------------
 const ProfileSchema = new mongoose.Schema({
     username: String,
     posts: String,
@@ -75,178 +71,177 @@ const YouTubeChannelSchema = new mongoose.Schema({
 const Profile = mongoose.model('Profile', ProfileSchema);
 const YouTubeChannel = mongoose.model('YouTubeChannel', YouTubeChannelSchema);
 
-// ------------------- Twitter Profile Data --------------------
-async function fetchProfileData(username) {
-    const browser = await puppeteer.launch({
-        headless: true,
-        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', // Change if needed
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0');
-
-    try {
-        await page.goto(`https://x.com/${username}`, { waitUntil: 'networkidle2' });
-
-        const profileData = await page.evaluate((username) => {
-            const posts = document.querySelector('.r-n6v787')?.textContent || "0";
-            const profilePhoto = document.querySelector('img[src*="profile_images"]')?.src || '';
-            const following = document.querySelector(`a[href="/${username}/following"] span`)?.textContent || "0";
-            const followers = document.querySelector(`a[href="/${username}/followers"] span`)?.textContent || "0";
-            const joinedDate = Array.from(document.querySelectorAll('span')).find(span => span.textContent.includes('Joined'))?.textContent || "Unknown";
-            const bio = document.querySelector('div[data-testid="UserDescription"]')?.innerText || '';
-            return { posts, profile_photo: profilePhoto, following, followers, joined_date: joinedDate, bio };
-        }, username);
-
-        const tweets = await fetchTweets(page);
-        await browser.close();
-
-        return { ...profileData, tweets };
-
-    } catch (err) {
-        console.error('Error:', err);
-        await browser.close();
-        return { error: 'Failed to fetch Twitter profile.' };
-    }
-}
-
+// ----------------------
+// Twitter Profile Route
+// ----------------------
 async function fetchTweets(page) {
     try {
         await page.waitForSelector('article', { timeout: 10000 });
-
-        const tweets = await page.evaluate(() => {
-            return Array.from(document.querySelectorAll('article')).slice(0, 10).map(tweet => {
+        const tweets = await page.evaluate(() =>
+            Array.from(document.querySelectorAll('article')).slice(0, 10).map(tweet => {
                 const text = tweet.querySelector('div[lang]')?.innerText || '';
                 const date = tweet.querySelector('time')?.getAttribute('datetime') || '';
                 const likes = tweet.querySelector('div[data-testid="like"] span')?.innerText || '0';
                 return { text, date, likes };
-            });
-        });
+            })
+        );
 
         return tweets.map(tweet => {
-            const result = sentiment.analyze(tweet.text);
-            return { ...tweet, sentiment: result.score, comparative: result.comparative };
+            const sentimentResult = sentiment.analyze(tweet.text);
+            return {
+                ...tweet,
+                sentiment: sentimentResult.score,
+                comparative: sentimentResult.comparative,
+            };
         });
-
     } catch (err) {
         console.error('Error fetching tweets:', err);
         return [];
     }
 }
 
-app.post('/get_profile', async (req, res) => {
+async function fetchProfileData(username) {
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const page = await browser.newPage();
+    try {
+        await page.goto(`https://x.com/${username}`, { waitUntil: 'networkidle2' });
+        await page.waitForSelector('.r-n6v787', { timeout: 10000 });
+
+        const profileData = await page.evaluate((username) => {
+            const posts = document.querySelector('.r-n6v787')?.textContent || "0";
+            const profilePhoto = document.querySelector('img[src*="profile_images"]')?.src || '';
+            const following = document.querySelector(`a[href="/${username}/following"] span`)?.textContent || "0";
+            const followers = document.querySelector(`a[href="/${username}/verified_followers"] span`)?.textContent || "0";
+            const joinedDate = Array.from(document.querySelectorAll('span')).find(span => span.textContent.includes('Joined'))?.textContent || "N/A";
+            const bio = document.querySelector('div[data-testid="UserDescription"]')?.innerText || '';
+            return { posts, profile_photo: profilePhoto, following, followers, joined_date: joinedDate, bio };
+        }, username);
+
+        const tweets = await fetchTweets(page);
+        await browser.close();
+        return { ...profileData, tweets };
+    } catch (err) {
+        console.error("Twitter scraping failed:", err);
+        await browser.close();
+        return { error: "Failed to fetch profile." };
+    }
+}
+
+app.post("/get_profile", async (req, res) => {
     const { username } = req.body;
-    if (!username) return res.status(400).json({ message: 'Username is required' });
+    if (!username) return res.status(400).json({ error: "Username required" });
 
-    const profileData = await fetchProfileData(username);
-    if (profileData.error) return res.status(400).json({ message: profileData.error });
+    const data = await fetchProfileData(username);
+    if (data.error) return res.status(400).json({ error: data.error });
 
-    const newProfile = new Profile(profileData);
-    await newProfile.save();
+    const saved = new Profile(data);
+    await saved.save();
 
-    res.json(profileData);
+    res.json(data);
 });
 
-// ------------------- YouTube API --------------------
-app.get('/api/channel/:channelName', async (req, res) => {
+// ----------------------
+// YouTube API Route
+// ----------------------
+app.get("/api/channel/:channelName", async (req, res) => {
     const { channelName } = req.params;
+
     try {
-        const searchResponse = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+        const search = await axios.get('https://www.googleapis.com/youtube/v3/search', {
             params: {
                 part: 'snippet',
                 q: channelName,
+                key: YT_API_KEY,
                 type: 'channel',
-                key: process.env.YT_API_KEY,
             },
         });
 
-        if (searchResponse.data.items.length === 0)
-            return res.status(404).json({ error: 'Channel not found' });
+        const channelId = search.data.items[0]?.id?.channelId;
+        if (!channelId) return res.status(404).json({ error: 'Channel not found' });
 
-        const channelId = searchResponse.data.items[0].id.channelId;
-
-        const channelData = await axios.get('https://www.googleapis.com/youtube/v3/channels', {
-            params: {
-                part: 'statistics,snippet',
-                id: channelId,
-                key: process.env.YT_API_KEY,
-            },
-        });
-
-        const item = channelData.data.items[0];
-        const channelInfo = {
-            channelName: item.snippet.title,
-            channelThumbnail: item.snippet.thumbnails.default.url,
-            totalViews: item.statistics.viewCount,
-            totalSubscribers: item.statistics.subscriberCount,
-            totalVideos: item.statistics.videoCount,
-        };
-
-        const videosResponse = await axios.get('https://www.googleapis.com/youtube/v3/search', {
-            params: {
-                part: 'snippet',
-                channelId,
-                maxResults: 5,
-                order: 'date',
-                type: 'video',
-                key: process.env.YT_API_KEY,
-            },
-        });
-
-        const recentVideos = await Promise.all(videosResponse.data.items.map(async (video) => {
-            const details = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+        const [channelRes, videosRes] = await Promise.all([
+            axios.get('https://www.googleapis.com/youtube/v3/channels', {
                 params: {
                     part: 'statistics,snippet',
-                    id: video.id.videoId,
-                    key: process.env.YT_API_KEY,
+                    id: channelId,
+                    key: YT_API_KEY,
+                },
+            }),
+            axios.get('https://www.googleapis.com/youtube/v3/search', {
+                params: {
+                    part: 'snippet',
+                    channelId,
+                    maxResults: 5,
+                    order: 'date',
+                    type: 'video',
+                    key: YT_API_KEY,
+                },
+            })
+        ]);
+
+        const info = channelRes.data.items[0];
+        const stats = info.statistics;
+        const snippet = info.snippet;
+
+        const recentVideos = await Promise.all(videosRes.data.items.map(async (v) => {
+            const videoId = v.id.videoId;
+            const videoDetails = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+                params: {
+                    part: 'statistics,snippet',
+                    id: videoId,
+                    key: YT_API_KEY,
                 },
             });
-            const v = details.data.items[0];
+            const details = videoDetails.data.items[0];
             return {
-                title: v.snippet.title,
-                description: v.snippet.description,
-                publishedAt: v.snippet.publishedAt,
-                likes: v.statistics.likeCount,
-                comments: v.statistics.commentCount,
-                views: v.statistics.viewCount,
+                title: details.snippet.title,
+                description: details.snippet.description,
+                publishedAt: details.snippet.publishedAt,
+                likes: details.statistics.likeCount,
+                comments: details.statistics.commentCount,
+                views: details.statistics.viewCount,
             };
         }));
 
-        const youtubeData = { ...channelInfo, recentVideos };
-        const newYT = new YouTubeChannel(youtubeData);
-        await newYT.save();
+        const channelData = {
+            channelName: snippet.title,
+            channelThumbnail: snippet.thumbnails.default.url,
+            totalViews: stats.viewCount,
+            totalSubscribers: stats.subscriberCount,
+            totalVideos: stats.videoCount,
+            recentVideos,
+        };
 
-        res.json({ stats: channelInfo, recentVideos });
-
-    } catch (error) {
-        console.error(error.message);
+        await new YouTubeChannel(channelData).save();
+        res.json(channelData);
+    } catch (err) {
+        console.error(err.message);
         res.status(500).json({ error: 'YouTube API error' });
     }
 });
 
-// ------------------- Chatbot --------------------
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+// ----------------------
+// Gemini Chatbot
+// ----------------------
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 app.post('/chat', async (req, res) => {
-    const userMessage = req.body.message;
-    if (!userMessage) return res.status(400).json({ error: "No message provided." });
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: "Message required" });
 
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const result = await model.generateContent([userMessage]);
-        res.json({ reply: result.response.text() });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Chatbot error" });
+        const result = await model.generateContent([message]);
+        const reply = result.response.text();
+        res.json({ reply });
+    } catch (err) {
+        console.error("Chat error:", err.message);
+        res.status(500).json({ error: "Chat processing error" });
     }
 });
 
-// Serve chatbot UI
-app.get('/c', (req, res) => {
-    res.sendFile(__dirname + '/public/chatbot.html');
-});
-
-app.listen(PORT, () => {
-    console.log(`🚀 Server running at http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`🌐 Server running on http://localhost:${PORT}`));
